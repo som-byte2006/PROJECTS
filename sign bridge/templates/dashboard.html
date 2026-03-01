@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+ <html lang="en"> 
+<head> 
+<meta charset="UTF-8"> 
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Dashboard - Communication Bridge</title>
+ <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+ <style> * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+
+
+    body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #0f0f1a 0%, #1a1a3a 100%);
+    }
+
+    .dashboard-container {
+        width: 100%;
+        max-width: 500px;
+        padding: 20px;
+    }
+
+    .dashboard-box {
+        background: rgba(26, 26, 46, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 40px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        text-align: center;
+    }
+
+    .user-avatar {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #00d2ff, #00a8cc);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin: 0 auto 20px;
+    }
+
+    .dashboard-box h1 {
+        color: #fff;
+        font-size: 1.4rem;
+        margin-bottom: 5px;
+    }
+
+    .dashboard-box .subtitle {
+        color: #00d2ff;
+        font-size: 0.9rem;
+        margin-bottom: 25px;
+    }
+
+    .current-info {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 25px;
+        text-align: left;
+    }
+
+    .current-info p {
+        color: #a0a0a0;
+        font-size: 0.9rem;
+        margin: 10px 0;
+    }
+
+    .current-info strong {
+        color: #fff;
+    }
+
+    .current-info .value {
+        color: #00d2ff;
+        font-weight: 600;
+    }
+
+    .not-set {
+        color: #ff6b6b !important;
+        font-style: italic;
+    }
+
+    .dashboard-box label {
+        display: block;
+        color: #a0a0a0;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+        text-align: left;
+    }
+
+    .dashboard-box input {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.3);
+        color: #fff;
+        font-size: 0.95rem;
+        margin-bottom: 20px;
+    }
+
+    .dashboard-box input:focus {
+        outline: none;
+        border-color: #00d2ff;
+    }
+
+    .save-btn {
+        width: 100%;
+        padding: 16px;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #00d2ff, #00a8cc);
+        color: #000;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 15px;
+    }
+
+    .save-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(0, 210, 255, 0.4);
+    }
+
+    .action-links {
+        display: flex;
+        gap: 10px;
+    }
+
+    .start-btn, .logout-btn {
+        flex: 1;
+        padding: 14px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+
+    .start-btn {
+        background: linear-gradient(135deg, #00ff88, #00cc6a);
+        color: #000;
+    }
+
+    .logout-btn {
+        background: rgba(255, 0, 0, 0.2);
+        color: #ff6b6b;
+        border: 1px solid rgba(255, 0, 0, 0.3);
+    }
+
+    .start-btn:hover, .logout-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .alert {
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+
+    .alert.error {
+        background: rgba(255, 0, 0, 0.2);
+        color: #ff6b6b;
+    }
+
+    .alert.success {
+        background: rgba(0, 255, 0, 0.2);
+        color: #6bff6b;
+    }
+
+    .alert.warning {
+        background: rgba(255, 165, 0, 0.2);
+        color: #ffa500;
+    }
+</style>
+</head> <body>
+
+Copy code
+<div class="dashboard-container">
+    <div class="dashboard-box">
+        <div class="user-avatar">👤</div>
+        <h1>Welcome, {{ user.username }}!</h1>
+        <p class="subtitle">Communication Bridge</p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="current-info">
+            <p><strong>Your Email:</strong> <span class="value">{{ user.email }}</span></p>
+            <p><strong>Emergency Send To:</strong> 
+                {% if user.receiver_email %}
+                    <span class="value">{{ user.receiver_email }}</span>
+                {% else %}
+                    <span class="not-set">Not set</span>
+                {% endif %}
+            </p>
+        </div>
+        
+        <form method="POST" action="/dashboard">
+            <label>Set Emergency Receiver Email:</label>
+            <input type="email" name="receiver_email" placeholder="receiver@gmail.com" value="{{ user.receiver_email or '' }}" required>
+            <button type="submit" class="save-btn">Save & Continue</button>
+        </form>
+        
+        {% if user.receiver_email %}
+            <a href="/home" class="start-btn">Go to App →</a>
+        {% endif %}
+        
+        <br><br>
+        
+        <a href="/logout" class="logout-btn">Logout</a>
+    </div>
+</div>
+</body> </html> 

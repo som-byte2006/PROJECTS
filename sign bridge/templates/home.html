@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Communication Bridge</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { min-height: 100vh; background: linear-gradient(135deg, #0f0f1a 0%, #1a1a3a 100%); }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
+        header { position: relative; margin-bottom: 20px; }
+        .header-top { display: flex; justify-content: center; align-items: center; position: relative; }
+        header h1 { color: #00d2ff; font-size: 1.8rem; text-transform: uppercase; letter-spacing: 2px; }
+        header p { color: #a0a0a0; font-size: 0.9rem; margin-top: 5px; }
+        #mode-toggle, #help-btn { position: absolute; top: 50%; transform: translateY(-50%); background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 1rem; cursor: pointer; }
+        #mode-toggle { right: 0; }
+        #help-btn { left: 0; }
+        .video-container { position: relative; width: 100%; max-width: 640px; height: 480px; margin: 20px auto; background: #000; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        #status-overlay { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 20px; font-size: 0.8rem; z-index: 10; color: #fff; }
+        .controls { display: flex; gap: 20px; justify-content: center; margin-top: 25px; flex-wrap: wrap; }
+        .card { background: #1a1a2e; padding: 20px 30px; border-radius: 16px; min-width: 200px; border: 1px solid rgba(255,255,255,0.1); }
+        .card h2 { color: #a0a0a0; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 5px; }
+        #gesture-text { color: #00d2ff; font-size: 2rem; font-weight: 700; min-height: 45px; }
+        button#speak-btn { background: linear-gradient(135deg, #00d2ff, #00a8cc); color: #000; border: none; padding: 12px 28px; font-size: 0.9rem; font-weight: 700; border-radius: 25px; cursor: pointer; margin-top: 15px; }
+        button#speak-btn:disabled { background: #555; color: #888; cursor: not-allowed; }
+        
+        /* Help Modal */
+        #help-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; }
+        .help-content { background: #1a1a2e; padding: 30px; border-radius: 20px; max-width: 450px; max-height: 80vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); }
+        .help-content h2 { color: #00d2ff; margin-top: 0; }
+        .gesture-list { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+        .gesture-item { display: flex; align-items: center; gap: 15px; background: #0f0f1a; padding: 12px; border-radius: 10px; }
+        .gesture-icon { font-size: 1.8rem; }
+        .gesture-info strong { color: #fff; display: block; }
+        .gesture-info small { color: #a0a0a0; font-size: 0.75rem; }
+        #close-help-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #00d2ff, #00a8cc); border: none; border-radius: 10px; font-weight: 700; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <button id="help-btn">❓</button>
+                <h1>Communication Bridge</h1>
+                <button id="mode-toggle">🌙</button>
+            </div>
+            <p>Welcome {{ user.username }}! | Emergency to: {{ user.receiver_email }}</p>
+        </header>
+
+        <div class="video-container">
+            <video id="input_video" playsinline></video>
+            <canvas id="output_canvas" width="640" height="480"></canvas>
+            <div id="status-overlay">Show Hand to Camera</div>
+        </div>
+
+        <div class="controls">
+            <div class="card">
+                <h2>Detected:</h2>
+                <h1 id="gesture-text">Waiting...</h1>
+            </div>
+            <div class="card">
+                <button id="speak-btn" disabled>Speak Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal">
+        <div class="help-content">
+            <h2>🤚 Gesture Guide</h2>
+            <div class="gesture-list">
+                <div class="gesture-item"><span class="gesture-icon">✋</span><div class="gesture-info"><strong>STOP</strong><small>Open Palm</small></div></div>
+                <div class="gesture-item"><span class="gesture-icon">✊</span><div class="gesture-info"><strong>EMERGENCY</strong><small>Fist - Sends Email</small></div></div>
+                <div class="gesture-item"><span class="gesture-icon">✌️</span><div class="gesture-info"><strong>THANK YOU</strong><small>Peace Sign</small></div></div>
+                <div class="gesture-item"><span class="gesture-icon">👍</span><div class="gesture-info"><strong>YES</strong><small>Thumbs Up</small></div></div>
+                <div class="gesture-item"><span class="gesture-icon">☝️</span><div class="gesture-info"><strong>ONE</strong><small>Pointing</small></div></div>
+                <div class="gesture-item"><span class="gesture-icon">🤟</span><div class="gesture-info"><strong>I LOVE YOU</strong><small>ILY Sign</small></div></div>
+            </div>
+            <button id="close-help-btn">GOT IT!</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

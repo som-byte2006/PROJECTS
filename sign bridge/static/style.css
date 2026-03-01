@@ -1,0 +1,397 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+:root {
+    --primary: #00d2ff;
+    --primary-dark: #00a8cc;
+    --bg: #0f0f1a;
+    --card-bg: #1a1a2e;
+    --text: #ffffff;
+    --text-muted: #a0a0a0;
+    --header-bg: #16162a;
+    --border-color: rgba(255,255,255,0.1);
+}
+
+[data-theme="light"] {
+    --primary: #0099cc;
+    --primary-dark: #007799;
+    --bg: #f0f2f5;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --text-muted: #666666;
+    --header-bg: #e8e8e8;
+    --border-color: rgba(0,0,0,0.1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg);
+    background-image: radial-gradient(circle at 50% 0%, var(--header-bg) 0%, var(--bg) 100%);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ========== MODALS ========== */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 1px solid var(--border-color);
+}
+
+.modal-content h2 {
+    color: var(--primary);
+    margin-top: 0;
+    font-size: 1.5rem;
+}
+
+.modal-content p {
+    color: var(--text-muted);
+    margin-bottom: 20px;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.modal-content button {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: #000;
+    border: none;
+    padding: 15px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.modal-content button:hover {
+    transform: scale(1.02);
+    box-shadow: 0 5px 20px rgba(0, 210, 255, 0.4);
+}
+
+/* ========== HELP MODAL ========== */
+
+.help-content {
+    max-width: 450px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.gesture-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.gesture-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: var(--bg);
+    padding: 12px 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    transition: transform 0.2s ease;
+    text-align: left;
+}
+
+.gesture-item:hover {
+    transform: scale(1.02);
+}
+
+.gesture-item.emergency-item {
+    border-color: #ff0000;
+    background: rgba(255, 0, 0, 0.1);
+}
+
+.gesture-icon {
+    font-size: 1.8rem;
+    width: 50px;
+    text-align: center;
+}
+
+.gesture-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.gesture-info strong {
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.gesture-info small {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+#close-help-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: #000;
+    border: none;
+    padding: 15px;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* ========== MAIN CONTAINER ========== */
+
+.container {
+    width: 100%;
+    max-width: 800px;
+    padding: 20px;
+    text-align: center;
+}
+
+/* ========== HEADER ========== */
+
+header {
+    position: relative;
+}
+
+.header-top {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+header h1 {
+    margin: 0;
+    color: var(--primary);
+    font-size: 2rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(0, 210, 255, 0.5);
+}
+
+header p {
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* ========== HEADER BUTTONS ========== */
+
+#mode-toggle, #help-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+#mode-toggle {
+    right: 0;
+}
+
+#help-btn {
+    left: 0;
+}
+
+#mode-toggle:hover, #help-btn:hover {
+    background: var(--primary);
+    color: #000;
+}
+
+/* ========== VIDEO CONTAINER ========== */
+
+.video-container {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    height: 480px;
+    margin: 25px auto;
+    background: #000;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    transition: all 0.3s ease;
+}
+
+video {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+
+canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1);
+}
+
+#status-overlay {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    z-index: 10;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+[data-theme="light"] #status-overlay {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+}
+
+/* ========== CONTROLS ========== */
+
+.controls {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 25px;
+    flex-wrap: wrap;
+}
+
+.card {
+    background: var(--card-bg);
+    padding: 20px 25px;
+    border-radius: 16px;
+    min-width: 200px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+}
+
+.card h2 {
+    margin: 0 0 5px 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+#gesture-text {
+    font-size: 2rem;
+    margin: 10px 0;
+    color: var(--primary);
+    min-height: 45px;
+    font-weight: 700;
+}
+
+.instruction {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+button#speak-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: #000;
+    border: none;
+    padding: 12px 28px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+button#speak-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(0, 210, 255, 0.4);
+}
+
+button#speak-btn:disabled {
+    background: #555;
+    color: #888;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ========== RESPONSIVE ========== */
+
+@media (max-width: 600px) {
+    header h1 {
+        font-size: 1.4rem;
+    }
+    
+    .video-container {
+        height: 350px;
+    }
+    
+    .card {
+        min-width: 100%;
+    }
+    
+    #gesture-text {
+        font-size: 1.6rem;
+    }
+    
+    .modal-content {
+        padding: 25px;
+    }
+    
+    .gesture-item {
+        padding: 10px 12px;
+    }
+    
+    .gesture-icon {
+        font-size: 1.5rem;
+        width: 40px;
+    }
+}

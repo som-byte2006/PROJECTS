@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Communication Bridge - Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0f0f1a 0%, #1a1a3a 100%); overflow: hidden; }
+        .auth-container { position: relative; z-index: 10; width: 100%; max-width: 420px; padding: 20px; }
+        .auth-box { background: rgba(26, 26, 46, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 40px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5); }
+        .logo-section { text-align: center; margin-bottom: 30px; }
+        .logo-icon { font-size: 3rem; margin-bottom: 10px; display: block; animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .logo-section h1 { color: #00d2ff; font-size: 1.6rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }
+        .logo-section p { color: #a0a0a0; font-size: 0.9rem; }
+        .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 0.85rem; text-align: center; }
+        .alert.error { background: rgba(255, 0, 0, 0.2); color: #ff6b6b; border: 1px solid rgba(255, 0, 0, 0.3); }
+        .alert.success { background: rgba(0, 255, 0, 0.2); color: #6bff6b; border: 1px solid rgba(0, 255, 0, 0.3); }
+        .tabs { display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 4px; margin-bottom: 25px; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: transparent; color: #a0a0a0; font-size: 0.95rem; font-weight: 600; cursor: pointer; border-radius: 10px; transition: all 0.3s ease; }
+        .tab-btn.active { background: linear-gradient(135deg, #00d2ff, #00a8cc); color: #000; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; color: #a0a0a0; font-size: 0.85rem; margin-bottom: 8px; }
+        .form-group input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.3); color: #fff; font-size: 0.95rem; transition: all 0.3s ease; }
+        .form-group input:focus { outline: none; border-color: #00d2ff; box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); }
+        .form-group input::placeholder { color: #666; }
+        .submit-btn { width: 100%; padding: 16px; border: none; border-radius: 12px; background: linear-gradient(135deg, #00d2ff, #00a8cc); color: #000; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; }
+        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 210, 255, 0.4); }
+        .features { display: flex; justify-content: center; gap: 15px; margin-top: 25px; flex-wrap: wrap; }
+        .feature-badge { background: rgba(0, 210, 255, 0.1); padding: 8px 16px; border-radius: 20px; font-size: 0.7rem; color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.2); }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-box">
+            <div class="logo-section">
+                <span class="logo-icon">🤝</span>
+                <h1>Communication Bridge</h1>
+                <p>Sign Language to Speech</p>
+            </div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('login')">Login</button>
+                <button class="tab-btn" onclick="showTab('register')">Register</button>
+            </div>
+            
+            <form id="login-form" action="/login" method="POST">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="submit-btn">Sign In</button>
+            </form>
+            
+            <form id="register-form" style="display:none;" action="/register" method="POST">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" placeholder="Choose a username" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="Create a password" required>
+                </div>
+                <button type="submit" class="submit-btn">Create Account</button>
+            </form>
+            
+            <div class="features">
+                <span class="feature-badge">✋ Hand Detection</span>
+                <span class="feature-badge">🗣️ Voice Output</span>
+                <span class="feature-badge">🚨 Emergency</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showTab(tab) {
+            document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+            document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
