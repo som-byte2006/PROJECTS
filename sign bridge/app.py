@@ -8,30 +8,39 @@ from email.mime.multipart import MIMEMultipart
 import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-this'
+# IMPORTANT: In a real app, use an environment variable for the secret key
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'index'
 
 # Email Config (Admin sets this globally)
-ADMIN_EMAIL = "your_email@gmail.com"
-ADMIN_PASSWORD = "your_app_password"
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', "your_email@gmail.com")
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', "your_app_password")
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Database Model
-class User(db.Model):
+# --- DATABASE MODEL ---
+# Added UserMixin here to fix the 'is_active' error
+class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
     receiver_email = db.Column(db.String(150), nullable=True)
 
-# Routes
+# --- DATABASE INITIALIZATION ---
+# Moved outside of __main__ so it runs under Gunicorn on Render
+with app.app_context():
+    db.create_all()
+
+# --- ROUTES ---
 @app.route('/')
 def index():
     if current_user.is_authenticated:
@@ -122,7 +131,5 @@ def logout():
     logout_user()
     return redirect(url_for('index'))
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    app.run()
