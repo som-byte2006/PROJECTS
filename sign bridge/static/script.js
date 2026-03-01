@@ -1,4 +1,3 @@
-// 1. Setup Elements
 const videoElement = document.getElementById('input_video');
 const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement.getContext('2d');
@@ -6,17 +5,22 @@ const statusOverlay = document.getElementById('status-overlay');
 const gestureText = document.getElementById('gesture-text');
 const speakBtn = document.getElementById('speak-btn');
 const modeToggle = document.getElementById('mode-toggle');
+const helpBtn = document.getElementById('help-btn');
+const closeHelpBtn = document.getElementById('close-help-btn');
+const helpModal = document.getElementById('help-modal');
+const videoContainer = document.querySelector('.video-container');
 
-// 2. State Variables
+canvasElement.width = 640;
+canvasElement.height = 480;
+
+let receiverEmail = "{{ user.receiver_email }}";
 let lastSpokenGesture = "";
 let isDarkMode = true;
 let isEmergency = false;
 let hands, camera;
 
-// 3. Initialize MediaPipe Hands
+// --- INITIALIZATION ---
 function initApp() {
-    statusOverlay.innerText = "Loading Model...";
-
     hands = new Hands({locateFile: (file) => {
         return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
     }});
@@ -30,7 +34,6 @@ function initApp() {
 
     hands.onResults(onResults);
 
-    // Initialize Camera
     camera = new Camera(videoElement, {
         onFrame: async () => {
             await hands.send({image: videoElement});
@@ -40,16 +43,84 @@ function initApp() {
     });
 
     camera.start()
-        .then(() => {
-            statusOverlay.innerText = "Camera Active - Show Hand";
-        })
-        .catch((err) => {
-            statusOverlay.innerText = "Camera Error: " + err;
-            console.error("Camera failed:", err);
-        });
+        .then(() => { statusOverlay.innerText = "Model Loaded - Show Hand"; })
+        .catch((err) => { statusOverlay.innerText = "Camera Error: " + err; });
 }
 
-// 4. Processing Results
+function initAudioContext() {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx.resume();
+}
+
+window.addEventListener('load', () => {
+    initAudioContext();
+    initApp();
+});
+
+// --- UI CONTROLS ---
+modeToggle.addEventListener('click', () => {
+    isDarkMode = !isDarkMode;
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    modeToggle.textContent = isDarkMode ? '🌙' : '☀️';
+});
+
+if (helpBtn) helpBtn.onclick = () => helpModal.style.display = 'flex';
+if (closeHelpBtn) closeHelpBtn.onclick = () => helpModal.style.display = 'none';
+
+// --- EMERGENCY FEATURES ---
+function playEmergencyBeep() {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const playTone = () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = 800;
+        osc.type = 'square';
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    };
+    playTone();
+    setTimeout(playTone, 400);
+}
+
+function sendEmergencyEmail() {
+    fetch('/send-emergency', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: receiverEmail })
+    })
+    .then(res => res.json())
+    .then(data => {
+        statusOverlay.innerText = data.success ? "📧 EMAIL SENT!" : "❌ EMAIL FAILED";
+    })
+    .catch(() => { statusOverlay.innerText = "❌ SERVER ERROR"; });
+}
+
+function activateEmergencyMode() {
+    isEmergency = true;
+    videoContainer.style.background = 'linear-gradient(145deg, #ff0000, #cc0000)';
+    videoContainer.style.boxShadow = '0 0 50px rgba(255, 0, 0, 0.8)';
+    statusOverlay.style.background = 'rgba(255, 0, 0, 0.9)';
+    statusOverlay.innerText = '🚨 SENDING EMERGENCY 🚨';
+    statusOverlay.style.color = '#fff';
+    
+    playEmergencyBeep();
+    sendEmergencyEmail();
+    
+    setTimeout(() => {
+        isEmergency = false;
+        videoContainer.style.background = '';
+        videoContainer.style.boxShadow = '';
+        statusOverlay.style.background = '';
+        statusOverlay.innerText = 'Hand Detected';
+        statusOverlay.style.color = '';
+    }, 4000);
+}
+
+// --- GESTURE LOGIC ---
 function onResults(results) {
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -57,63 +128,92 @@ function onResults(results) {
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
-        
-        // Draw the skeleton
-        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00d2ff', lineWidth: 2});
+        const color = isDarkMode ? '#00d2ff' : '#0099cc';
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: color, lineWidth: 2});
         drawLandmarks(canvasCtx, landmarks, {color: '#ff0000', lineWidth: 1, radius: 3});
         
         const gesture = identifyGesture(landmarks);
         updateUI(gesture);
     } else {
+        statusOverlay.innerText = "No hand detected";
         gestureText.innerText = "Waiting...";
+        speakBtn.disabled = true;
     }
     canvasCtx.restore();
 }
 
-// 5. Gesture Recognition Logic
 function identifyGesture(landmarks) {
-    const thumbTip = landmarks[4];
-    const indexTip = landmarks[8];
-    const middleTip = landmarks[12];
-    const pinkyTip = landmarks[20];
-    const indexPIP = landmarks[6];
+    const thumbTip = landmarks[4], indexTip = landmarks[8], middleTip = landmarks[12];
+    const ringTip = landmarks[16], pinkyTip = landmarks[20];
+    const indexPIP = landmarks[6], middlePIP = landmarks[10], ringPIP = landmarks[14];
+    const pinkyPIP = landmarks[18], thumbIP = landmarks[3];
 
-    // Simple vertical check: Is the tip higher (lower Y value) than the joint?
-    const indexUp = indexTip.y < indexPIP.y;
-    const allFingersDown = indexTip.y > landmarks[5].y && pinkyTip.y > landmarks[17].y;
+    const isFingerUp = (tip, pip) => tip.y < pip.y;
+    const indexUp = isFingerUp(indexTip, indexPIP);
+    const middleUp = isFingerUp(middleTip, middlePIP);
+    const ringUp = isFingerUp(ringTip, ringPIP);
+    const pinkyUp = isFingerUp(pinkyTip, pinkyPIP);
+    const thumbUp = thumbTip.y < thumbIP.y;
 
-    if (allFingersDown) {
-        if (!isEmergency) activateEmergencyMode();
-        return "EMERGENCY";
-    }
-    
-    if (indexUp && middleTip.y < landmarks[10].y) return "PEACE";
-    if (indexUp) return "POINTING";
-    
-    return "HAND DETECTED";
-}
+    // 1. STOP - Open Palm
+    if (indexUp && middleUp && ringUp && pinkyUp && thumbUp) return "STOP";
 
-// 6. Emergency & UI functions
-function activateEmergencyMode() {
-    isEmergency = true;
-    statusOverlay.innerText = '🚨 SENDING ALERT 🚨';
-    // Trigger the backend route we set up earlier
-    fetch('/send-emergency', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: "{{ user.receiver_email }}"})
-    });
-    setTimeout(() => { isEmergency = false; }, 5000);
+    // 2. EMERGENCY - Fist
+    if (!indexUp && !middleUp && !ringUp && !pinkyUp) return "EMERGENCY";
+
+    // 3. THANK YOU - Peace Sign
+    if (indexUp && middleUp && !ringUp && !pinkyUp) return "THANK YOU";
+
+    // 4. YES - Thumbs Up
+    if (!indexUp && !middleUp && !ringUp && !pinkyUp && thumbUp && thumbTip.x < indexTip.x) return "YES";
+
+    // 5. YES - Pointing
+    if (indexUp && !middleUp && !ringUp && !pinkyUp) return "YES";
+
+    // 6. HELLO
+    if (indexUp && !middleUp && !ringUp && pinkyUp && thumbUp) return "HELLO";
+
+    // 7. NO
+    if (indexUp && middleUp && ringUp && !pinkyUp) return "NO";
+
+    // 8. FOUR
+    if (indexUp && middleUp && ringUp && pinkyUp && !thumbUp) return "FOUR";
+
+    // 9. EIGHT / SIX / NO Logic
+    if (indexUp && !middleUp && !ringUp && pinkyUp) return "EIGHT";
+    if (!indexUp && !middleUp && !ringUp && pinkyUp) return "SIX";
+
+    return "UNKNOWN";
 }
 
 function updateUI(gesture) {
-    gestureText.innerText = gesture;
-    if (gesture !== lastSpokenGesture && gesture !== "Waiting...") {
-        const utterance = new SpeechSynthesisUtterance(gesture);
-        window.speechSynthesis.speak(utterance);
-        lastSpokenGesture = gesture;
+    if (gesture === "EMERGENCY") {
+        statusOverlay.innerText = "🚨 EMERGENCY 🚨";
+        gestureText.innerText = "EMERGENCY";
+        if (!isEmergency) activateEmergencyMode();
+        return;
+    }
+    
+    statusOverlay.innerText = "Hand Detected";
+    if (gesture !== "UNKNOWN") {
+        gestureText.innerText = gesture;
+        speakBtn.disabled = false;
+        if (gesture !== lastSpokenGesture) {
+            lastSpokenGesture = gesture;
+            speakText(gesture);
+        }
+    } else {
+        gestureText.innerText = "Adjust Hand";
+        speakBtn.disabled = true;
     }
 }
 
-// 7. Start the engine when page loads
-window.onload = initApp;
+function speakText(text) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(utterance);
+}
+
+speakBtn.addEventListener('click', () => {
+    if(gestureText.innerText !== "Waiting...") speakText(gestureText.innerText);
+});
