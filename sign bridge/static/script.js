@@ -8,18 +8,19 @@ const modeToggle = document.getElementById('mode-toggle');
 const helpBtn = document.getElementById('help-btn');
 const closeHelpBtn = document.getElementById('close-help-btn');
 const helpModal = document.getElementById('help-modal');
-const videoContainer = document.querySelector('.video-container');
+const videoContainer = document.getElementById('main-container');
+
+// GET RECEIVER EMAIL FROM HTML DATA ATTRIBUTE
+let receiverEmail = videoContainer.getAttribute('data-receiver');
 
 canvasElement.width = 640;
 canvasElement.height = 480;
 
-let receiverEmail = "{{ user.receiver_email }}";
 let lastSpokenGesture = "";
 let isDarkMode = true;
 let isEmergency = false;
 let hands, camera;
 
-// --- INITIALIZATION ---
 function initApp() {
     hands = new Hands({locateFile: (file) => {
         return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
@@ -57,7 +58,6 @@ window.addEventListener('load', () => {
     initApp();
 });
 
-// --- UI CONTROLS ---
 modeToggle.addEventListener('click', () => {
     isDarkMode = !isDarkMode;
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
@@ -67,7 +67,6 @@ modeToggle.addEventListener('click', () => {
 if (helpBtn) helpBtn.onclick = () => helpModal.style.display = 'flex';
 if (closeHelpBtn) closeHelpBtn.onclick = () => helpModal.style.display = 'none';
 
-// --- EMERGENCY FEATURES ---
 function playEmergencyBeep() {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const playTone = () => {
@@ -87,6 +86,11 @@ function playEmergencyBeep() {
 }
 
 function sendEmergencyEmail() {
+    if (!receiverEmail || receiverEmail === "" || receiverEmail === "None") {
+        statusOverlay.innerText = "❌ NO RECEIVER SET";
+        return;
+    }
+
     fetch('/send-emergency', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -100,6 +104,7 @@ function sendEmergencyEmail() {
 }
 
 function activateEmergencyMode() {
+    if (isEmergency) return;
     isEmergency = true;
     videoContainer.style.background = 'linear-gradient(145deg, #ff0000, #cc0000)';
     videoContainer.style.boxShadow = '0 0 50px rgba(255, 0, 0, 0.8)';
@@ -120,7 +125,6 @@ function activateEmergencyMode() {
     }, 4000);
 }
 
-// --- GESTURE LOGIC ---
 function onResults(results) {
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -155,31 +159,14 @@ function identifyGesture(landmarks) {
     const pinkyUp = isFingerUp(pinkyTip, pinkyPIP);
     const thumbUp = thumbTip.y < thumbIP.y;
 
-    // 1. STOP - Open Palm
     if (indexUp && middleUp && ringUp && pinkyUp && thumbUp) return "STOP";
-
-    // 2. EMERGENCY - Fist
     if (!indexUp && !middleUp && !ringUp && !pinkyUp) return "EMERGENCY";
-
-    // 3. THANK YOU - Peace Sign
     if (indexUp && middleUp && !ringUp && !pinkyUp) return "THANK YOU";
-
-    // 4. YES - Thumbs Up
     if (!indexUp && !middleUp && !ringUp && !pinkyUp && thumbUp && thumbTip.x < indexTip.x) return "YES";
-
-    // 5. YES - Pointing
     if (indexUp && !middleUp && !ringUp && !pinkyUp) return "YES";
-
-    // 6. HELLO
     if (indexUp && !middleUp && !ringUp && pinkyUp && thumbUp) return "HELLO";
-
-    // 7. NO
     if (indexUp && middleUp && ringUp && !pinkyUp) return "NO";
-
-    // 8. FOUR
     if (indexUp && middleUp && ringUp && pinkyUp && !thumbUp) return "FOUR";
-
-    // 9. EIGHT / SIX / NO Logic
     if (indexUp && !middleUp && !ringUp && pinkyUp) return "EIGHT";
     if (!indexUp && !middleUp && !ringUp && pinkyUp) return "SIX";
 
