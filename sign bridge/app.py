@@ -1,15 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
-from flask_bcrypt import Bcrypt
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import os
+import threading
+import smtplib
+from email.message import EmailMessage
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
-# IMPORTANT: In a real app, use an environment variable for the secret key
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this')
+
+# --- CONFIGURATION ---
+# Use Environment Variable for Secret Key or a fallback for local dev
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_key_123')
+# SQLite database setup
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -18,16 +21,25 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'index'
 
-# Email Config (Admin sets this globally)
-ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', "your_email@gmail.com")
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', "your_app_password")
+# --- EMAIL BACKGROUND TASK ---
+def send_mail_async(receiver_email, admin_email, admin_password):
+    """Sends email in a separate thread to prevent Render 'SIGKILL' timeouts."""
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = "🚨 SIGN BRIDGE: EMERGENCY ALERT"
+        msg['From'] = admin_email
+        msg['To'] = receiver_email
+        msg.set_content("An emergency gesture was detected by the Sign Bridge app. Please check on the user immediately.")
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+        # Gmail uses Port 465 for SSL
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(admin_email, admin_password)
+            smtp.send_message(msg)
+        print(f"✅ Email sent successfully to {receiver_email}")
+    except Exception as e:
+        print(f"❌ Background Email Error: {e}")
 
-# --- DATABASE MODEL ---
-# Added UserMixin here to fix the 'is_active' error
+# --- DATABASE MODELS ---
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -35,35 +47,38 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(150), nullable=False)
     receiver_email = db.Column(db.String(150), nullable=True)
 
-# --- DATABASE INITIALIZATION ---
-# Moved outside of __main__ so it runs under Gunicorn on Render
-with app.app_context():
-    db.create_all()
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # --- ROUTES ---
+
 @app.route('/')
 def index():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('home'))
     return render_template('index.html')
 
-@app.route('/register', methods=['POST'])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    username = request.form.get('username')
-    email = request.form.get('email')
-    password = request.form.get('password')
-    
-    if User.query.filter_by(email=email).first():
-        flash('Email already exists!', 'error')
-        return redirect(url_for('index'))
-    
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_user = User(username=username, email=email, password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    
-    flash('Account created! Please login.', 'success')
-    return redirect(url_for('index'))
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        receiver = request.form.get('receiver_email')
+        
+        hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
+        new_user = User(username=username, email=email, password=hashed_pw, receiver_email=receiver)
+        
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Account created! Please login.', 'success')
+            return redirect(url_for('index'))
+        except:
+            flash('Username or Email already exists.', 'danger')
+            
+    return render_template('register.html')
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -73,63 +88,46 @@ def login():
     
     if user and bcrypt.check_password_hash(user.password, password):
         login_user(user)
-        return redirect(url_for('dashboard'))
-    else:
-        flash('Invalid email or password!', 'error')
-        return redirect(url_for('index'))
-
-@app.route('/dashboard', methods=['GET', 'POST'])
-@login_required
-def dashboard():
-    if request.method == 'POST':
-        receiver_email = request.form.get('receiver_email')
-        current_user.receiver_email = receiver_email
-        db.session.commit()
-        flash('Receiver email saved!', 'success')
         return redirect(url_for('home'))
-    return render_template('dashboard.html', user=current_user)
+    else:
+        flash('Login Unsuccessful. Check email and password', 'danger')
+        return redirect(url_for('index'))
 
 @app.route('/home')
 @login_required
 def home():
-    if not current_user.receiver_email:
-        flash('Please set receiver email first!', 'warning')
-        return redirect(url_for('dashboard'))
     return render_template('home.html', user=current_user)
 
-@app.route('/send-emergency', methods=['POST'])
-def send_emergency():
-    data = request.json
-    receiver_email = data.get('email')
-    
-    if not receiver_email:
-        return {'success': False, 'message': 'No email provided'}, 400
-    
-    subject = "EMERGENCY ALERT!"
-    body = "I AM IN EMERGENCY! Please help me immediately!"
-    
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = ADMIN_EMAIL
-        msg['To'] = receiver_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(ADMIN_EMAIL, ADMIN_PASSWORD)
-        server.sendmail(ADMIN_EMAIL, receiver_email, msg.as_string())
-        server.quit()
-        
-        return {'success': True, 'message': 'Email sent successfully!'}
-    except Exception as e:
-        return {'success': False, 'message': str(e)}, 500
-
 @app.route('/logout')
-@login_required
 def logout():
     logout_user()
     return redirect(url_for('index'))
 
-if __name__ == "__main__":
-    app.run()
+@app.route('/send-emergency', methods=['POST'])
+def send_emergency():
+    data = request.get_json()
+    receiver = data.get('email')
+    
+    # Must match your Render Environment Variable Keys
+    admin_email = os.environ.get('ADMIN_EMAIL')
+    admin_pass = os.environ.get('ADMIN_PASSWORD')
+
+    if not receiver:
+        return jsonify({"success": False, "error": "No receiver email"}), 400
+
+    if admin_email and admin_pass:
+        # Launch the email task in the background
+        thread = threading.Thread(target=send_mail_async, args=(receiver, admin_email, admin_pass))
+        thread.start()
+        return jsonify({"success": True, "message": "Background alert started"}), 200
+    
+    print("❌ Critical: Environment variables ADMIN_EMAIL or ADMIN_PASSWORD are missing!")
+    return jsonify({"success": False, "error": "Server configuration error"}), 500
+
+# --- DATABASE INITIALIZATION ---
+# This ensures tables are created on Render even if the disk resets
+with app.app_context():
+    db.create_all()
+
+if __name__ == '__main__':
+    app.run(debug=True)
