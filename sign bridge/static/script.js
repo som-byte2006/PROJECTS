@@ -7,6 +7,11 @@ const speakBtn = document.getElementById('speak-btn');
 const modeToggle = document.getElementById('mode-toggle');
 const videoContainer = document.querySelector('.video-container');
 
+// Help Modal Elements
+const helpBtn = document.getElementById('help-btn');
+const helpModal = document.getElementById('help-modal');
+const closeHelpBtn = document.getElementById('close-help-btn');
+
 canvasElement.width = 640;
 canvasElement.height = 480;
 
@@ -16,6 +21,7 @@ let isDarkMode = true;
 let isEmergency = false;
 let hands, camera;
 
+// --- INITIALIZATION ---
 function initApp() {
     hands = new Hands({locateFile: (file) => {
         return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
@@ -38,25 +44,31 @@ function initApp() {
         height: 480
     });
 
-    camera.start();
-    statusOverlay.innerText = "Model Loaded - Show Hand";
+    camera.start()
+        .then(() => {
+            statusOverlay.innerText = "Camera Active - Show Hand";
+        })
+        .catch((err) => {
+            statusOverlay.innerText = "Camera Error: " + err;
+            console.error(err);
+        });
 }
 
-function initAudioContext() {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    audioCtx.resume();
-}
-
+// --- UI CONTROLS ---
 modeToggle.addEventListener('click', () => {
     isDarkMode = !isDarkMode;
-    if (isDarkMode) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        modeToggle.textContent = '🌙';
-    } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        modeToggle.textContent = '☀️';
-    }
+    document.body.style.background = isDarkMode 
+        ? "linear-gradient(135deg, #0f0f1a 0%, #1a1a3a 100%)" 
+        : "#f0f2f5";
+    modeToggle.textContent = isDarkMode ? '🌙' : '☀️';
 });
+
+// Modal Logic
+helpBtn.onclick = () => helpModal.style.display = 'flex';
+closeHelpBtn.onclick = () => helpModal.style.display = 'none';
+window.onclick = (event) => {
+    if (event.target == helpModal) helpModal.style.display = 'none';
+};
 
 function playEmergencyBeep() {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -67,21 +79,8 @@ function playEmergencyBeep() {
     oscillator.frequency.value = 800;
     oscillator.type = 'square';
     gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-    oscillator.start(audioCtx.currentTime);
+    oscillator.start();
     oscillator.stop(audioCtx.currentTime + 0.3);
-    setTimeout(() => {
-        const osc2 = audioCtx.createOscillator();
-        const gain2 = audioCtx.createGain();
-        osc2.connect(gain2);
-        gain2.connect(audioCtx.destination);
-        osc2.frequency.value = 800;
-        osc2.type = 'square';
-        gain2.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-        osc2.start(audioCtx.currentTime);
-        osc2.stop(audioCtx.currentTime + 0.3);
-    }, 400);
 }
 
 function sendEmergencyEmail() {
@@ -93,29 +92,19 @@ function sendEmergencyEmail() {
     .then(res => res.json())
     .then(data => {
         statusOverlay.innerText = data.success ? "📧 EMAIL SENT!" : "❌ EMAIL FAILED";
-    })
-    .catch(err => {
-        statusOverlay.innerText = "❌ SERVER ERROR";
     });
 }
 
 function activateEmergencyMode() {
+    if (isEmergency) return;
     isEmergency = true;
-    videoContainer.style.background = 'linear-gradient(145deg, #ff0000, #cc0000)';
-    statusOverlay.style.background = 'rgba(255, 0, 0, 0.9)';
-    statusOverlay.innerText = '🚨 SENDING EMERGENCY 🚨';
-    statusOverlay.style.color = '#fff';
+    statusOverlay.innerText = '🚨 EMERGENCY ALERT 🚨';
     playEmergencyBeep();
     sendEmergencyEmail();
-    setTimeout(() => {
-        isEmergency = false;
-        videoContainer.style.background = '';
-        statusOverlay.style.background = '';
-        statusOverlay.innerText = 'Hand Detected';
-        statusOverlay.style.color = '';
-    }, 4000);
+    setTimeout(() => { isEmergency = false; }, 5000);
 }
 
+// --- COMPUTER VISION LOGIC ---
 function onResults(results) {
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -123,17 +112,15 @@ function onResults(results) {
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
-        const lineColor = isDarkMode ? '#00d2ff' : '#0099cc';
-        const dotColor = isDarkMode ? '#ff0000' : '#cc0000';
-        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: lineColor, lineWidth: 2});
-        drawLandmarks(canvasCtx, landmarks, {color: dotColor, lineWidth: 1, radius: 3});
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00d2ff', lineWidth: 2});
+        drawLandmarks(canvasCtx, landmarks, {color: '#ff0000', lineWidth: 1, radius: 3});
+        
         const gesture = identifyGesture(landmarks);
         updateUI(gesture);
     } else {
-        statusOverlay.innerText = "No hand detected";
         gestureText.innerText = "Waiting...";
-        speakBtn.disabled = true;
     }
+    canvasCtx.restore();
 }
 
 function identifyGesture(landmarks) {
@@ -143,15 +130,31 @@ function identifyGesture(landmarks) {
     const ringTip = landmarks[16];
     const pinkyTip = landmarks[20];
     const indexPIP = landmarks[6];
-    const middlePIP = landmarks[10];
-    const ringPIP = landmarks[14];
-    const pinkyPIP = landmarks[18];
-    const thumbIP = landmarks[3];
-    const isFingerUp = (tip, pip) => tip.y < pip.y;
-    const indexUp = isFingerUp(indexTip, indexPIP);
-    const middleUp = isFingerUp(middleTip, middlePIP);
-    const ringUp = isFingerUp(ringTip, ringPIP);
-    const pinkyUp = isFingerUp(pinkyTip, pinkyPIP);
-    const thumbUp = (thumbTip.y < thumbIP.y);
 
-    if (indexUp && middleUp && ringUp && pinkyUp && thumbUp) return "
+    const indexUp = indexTip.y < indexPIP.y;
+    const allFingersDown = indexTip.y > landmarks[5].y && pinkyTip.y > landmarks[17].y;
+
+    // Emergency Trigger: Fist (matching your Help Modal Guide)
+    if (allFingersDown) {
+        activateEmergencyMode();
+        return "EMERGENCY";
+    }
+    
+    if (indexUp && middleTip.y < landmarks[10].y && ringTip.y > landmarks[14].y) return "PEACE";
+    if (indexUp && middleTip.y > landmarks[10].y) return "POINTING";
+    
+    return "HAND DETECTED";
+}
+
+function updateUI(gesture) {
+    gestureText.innerText = gesture;
+    speakBtn.disabled = false;
+    if (gesture !== lastSpokenGesture && gesture !== "Waiting...") {
+        const utterance = new SpeechSynthesisUtterance(gesture);
+        window.speechSynthesis.speak(utterance);
+        lastSpokenGesture = gesture;
+    }
+}
+
+// Initialize App
+window.onload = initApp;
